@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="拟解决的关键科学问题和主要研究内容基于深度网络模型，利用深度学习的方法，设计一个端到端的模型，对视频每一帧进行处理。具体处理流程由对象检测、特征提取两大步组成，如图1所示。    图1 处理流程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深度学习方法的对象检测与特征提取">
+<meta property="og:url" content="https://hulksun.github.io/2017/04/04/DeepNet-ObjectDetection/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="拟解决的关键科学问题和主要研究内容基于深度网络模型，利用深度学习的方法，设计一个端到端的模型，对视频每一帧进行处理。具体处理流程由对象检测、特征提取两大步组成，如图1所示。    图1 处理流程">
+<meta property="og:locale" content="zh">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/VideoStreamProcessing.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/Classifier.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/locator.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/Detector.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/StructureOfDN.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/SSD.png">
+<meta property="article:published_time" content="2017-04-04T03:23:39.000Z">
+<meta property="article:modified_time" content="2020-01-17T08:20:30.110Z">
+<meta property="article:author" content="Hulk Sun">
+<meta property="article:tag" content="DeepLearning">
+<meta property="article:tag" content="DeepNet">
+<meta property="article:tag" content="ObjectDetection">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hulksun.github.io/assets/img/VideoStreamProcessing.png">
+
+<link rel="canonical" href="https://hulksun.github.io/2017/04/04/DeepNet-ObjectDetection/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>深度学习方法的对象检测与特征提取 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2017/04/04/DeepNet-ObjectDetection/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          深度学习方法的对象检测与特征提取
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-04-04 11:23:39" itemprop="dateCreated datePublished" datetime="2017-04-04T11:23:39+08:00">2017-04-04</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-01-17 16:20:30" itemprop="dateModified" datetime="2020-01-17T16:20:30+08:00">2020-01-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/DeepLearning/" itemprop="url" rel="index">
+                    <span itemprop="name">DeepLearning</span>
+                  </a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="拟解决的关键科学问题和主要研究内容"><a href="#拟解决的关键科学问题和主要研究内容" class="headerlink" title="拟解决的关键科学问题和主要研究内容"></a>拟解决的关键科学问题和主要研究内容</h1><p>基于深度网络模型，利用深度学习的方法，设计一个端到端的模型，对视频每一帧进行处理。具体处理流程由对象检测、特征提取两大步组成，如图1所示。</p>
+<center>
+<img src="/assets/img/VideoStreamProcessing.png" width="80%" />
+<br>
+图1 处理流程
+</center>
+
+<a id="more"></a>
+
+<p>对象检测是计算机视觉、模式识别与机器学习领域非常活跃的研究方向。对象检测在很多领域有广泛应用，包括安防领域的人脸识别、行人检测、智能视频分析、行人跟踪等，交通领域的交通场景对象识别、车辆计数、逆行检测、车牌检测与识别，以及互联网领域的基于内容的图像检索、相册自动归类等。</p>
+<p>给定一张图片，对象分类要回答的问题是这张图片中包含哪一类对象，如图2（a）所示；对象定位要回答的问题则是对象出现在图中的什么地方，即需要给出对象的外接矩形框，如图2（b）所示；对象检测要回答的问题是对象在图中的什么地方以及该对象是什么，即对象分类和对象定位二者的结合，如图3所示。对象检测是整个计算机视觉研究的基石，是解决跟踪、分割、场景理解等其他复杂视觉问题的基础。欲对实际复杂场景进行自动分析与理解，首先就需要确定图像中什么位置存在什么对象，然后根据位置信息和类别信息做进一步操作。</p>
+<center>
+<img src="/assets/img/Classifier.png" width="40%"/>
+<br>
+图2（a）对象分类
+</center>
+
+<center>
+<img src="/assets/img/locator.png" width="50%"/>
+<br>
+图2（b）对象定位
+</center>
+
+<center>
+<img src="/assets/img/Detector.png" width="50%"/>
+<br>
+图3 对象检测
+</center>
+
+<p>相比于传统的对象检测方法，基于深度模型的对象检测具有检测速度快、资源消耗少、检测准确率高等优点。</p>
+<p>特征提取是一个降维的过程，三通道的二维图像经过深度网络后产生一个低维特征矢量，在特征提取过程中依旧保持原有图片的语义信息，所以低维特征矢量能够作为图片的索引，通过特征矢量就可以快速的检索图片，同时图片之间的相似性也可以通过计算特征矢量的距离来度量。传统的手工特征提取方法效率低下、应用范围不广、速度慢，基于深度网络模型的特征提取方法很好的弥补了传统特征提取方法的不足。</p>
+<h1 id="总体研究方案"><a href="#总体研究方案" class="headerlink" title="总体研究方案"></a>总体研究方案</h1><p>基于深度学习的实时对象检测、识别、对象特征智能提取技术</p>
+<h2 id="基于SSD的对象检测及特征提取原理"><a href="#基于SSD的对象检测及特征提取原理" class="headerlink" title="基于SSD的对象检测及特征提取原理"></a>基于SSD的对象检测及特征提取原理</h2><p>对象检测由两个部分组成：对象定位和对象分类，如图4所示。</p>
+<p>对象定位就是将图片中的物体对象标注出来，常用的标注方法是将物体对象所在位置用矩形框标记出来，实际计算和储存时使用的是矩形框左上角的横纵坐标及矩形框长宽值；对象分类就是判别矩形框内的对象属于哪一类物体。假设物体对象分类结果有20类，那么可以使用一个21维的置信度向量表示矩形框内的对象属于某一类物体或者属于背景的概率，向量的某一维的值越大说明矩形框内的对象属于对应某一类物体的可能性越大。</p>
+<p>在深度神经网络中，对象定位和对象分类是同时进行的，二者结合完成对象检测。将图片中的对象检测出来之后，再将多个矩形框内的对象送入到卷积神经网络中进行特征提取，得到多个对应的特征矢量。</p>
+<p>由于对象检测和特征提取是基于深度学习方法的，所以该任务可以利用GPU进行加速。实验结果表明，SSD在GPU上的处理速度最高可以达到58帧每秒，这样的速度完全满足对监控视频的处理速度的要求。</p>
+<center>
+<img src="/assets/img/StructureOfDN.png" width="50%"/>
+<br>
+图4 基于SSD的深度对象检测和特征提取模型结构
+</center>
+
+<h2 id="深度网络模型的训练过程"><a href="#深度网络模型的训练过程" class="headerlink" title="深度网络模型的训练过程"></a>深度网络模型的训练过程</h2><p>深度网络模型的使用离不开网络模型的训练，而网络模型训练离不开数据集的支持。对深度学习方法来说，在一个较大训练集上训练的模型，有助于提高模型的泛化能力。由于在本项目中，深度对象检测主要应用于监控视频方面，所以传统的数据集不能满足要求。解决办法是在传统数据集上训练的网络模型上进行微调，结合私有的监控视频数据集，训练出符合要求的深度网络模型。</p>
+<p>在深度对象检测网络模型的训练过程中，首先将图片送入到卷积神经网络中，在卷积神经网络的多层中取出多个特征图，之所以要取多层中的特征图是因为图片经过多层卷积后相对较小的对象会消失，在神经网络的低层可以将较小的对象检测出来。取出多个特征图后，在每个特征图上产生候选区域，候选区域即可能存在物体对象的位置。候选区域的产生策略是在特征图的每个特征点上分别向上下、左右和四周延伸一个特征点的距离，加上特征点本身共产生4个候选区域，候选区域的信息包括区域的横纵坐标、长宽和区域内的特征图属于某一类对象的置信度。候选区域产生后就可以结合Ground Truth进行网络参数的更新。</p>
+<center>
+<img src="/assets/img/SSD.png" width="50%"/>
+<br>
+图5 SSD的训练过程
+</center>
+
+<p>深度特征提取网络模型可以直接使用已经训练好的ImageNet网络模型，取神经网络的fc-7层的特征矢量。通过Image Net提取的特征矢量为4096维，这样的维度依旧太高，不利于处理，将4096维的特征矢量通过PCA方法降维，得到128或者256维的低维特征矢量。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/DeepLearning/" rel="tag"># DeepLearning</a>
+              <a href="/tags/DeepNet/" rel="tag"># DeepNet</a>
+              <a href="/tags/ObjectDetection/" rel="tag"># ObjectDetection</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/04/01/speech-recognition-with-DeepSpeech/" rel="prev" title="基于Deep Speech的语音识别系统的实现与改进">
+      <i class="fa fa-chevron-left"></i> 基于Deep Speech的语音识别系统的实现与改进
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/04/05/Android-with-so/" rel="next" title="Android中调用动态链接库">
+      Android中调用动态链接库 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#拟解决的关键科学问题和主要研究内容"><span class="nav-number">1.</span> <span class="nav-text">拟解决的关键科学问题和主要研究内容</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总体研究方案"><span class="nav-number">2.</span> <span class="nav-text">总体研究方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#基于SSD的对象检测及特征提取原理"><span class="nav-number">2.1.</span> <span class="nav-text">基于SSD的对象检测及特征提取原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#深度网络模型的训练过程"><span class="nav-number">2.2.</span> <span class="nav-text">深度网络模型的训练过程</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

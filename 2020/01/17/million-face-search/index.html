@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="项目背景市公安局为了解各企业人脸识别系统的实际性能表现，评估现有人脸识别系统对公安实战应用需求的满足程度，为后期人脸识别技术系统建设选型提供数据依据，举行了此次人脸识别系统性能测试，全部委托软件测试中心组织此次测试。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="千万级别人脸检索测试小结">
+<meta property="og:url" content="https://hulksun.github.io/2020/01/17/million-face-search/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="项目背景市公安局为了解各企业人脸识别系统的实际性能表现，评估现有人脸识别系统对公安实战应用需求的满足程度，为后期人脸识别技术系统建设选型提供数据依据，举行了此次人脸识别系统性能测试，全部委托软件测试中心组织此次测试。">
+<meta property="og:locale" content="zh">
+<meta property="article:published_time" content="2020-01-17T08:19:22.873Z">
+<meta property="article:modified_time" content="2020-01-17T08:19:22.873Z">
+<meta property="article:author" content="Hulk Sun">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://hulksun.github.io/2020/01/17/million-face-search/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>千万级别人脸检索测试小结 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2020/01/17/million-face-search/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          千万级别人脸检索测试小结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-01-17 16:19:22" itemprop="dateCreated datePublished" datetime="2020-01-17T16:19:22+08:00">2020-01-17</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="项目背景"><a href="#项目背景" class="headerlink" title="项目背景"></a>项目背景</h1><p>市公安局为了解各企业人脸识别系统的实际性能表现，评估现有人脸识别系统对公安实战应用需求的满足程度，为后期人脸识别技术系统建设选型提供数据依据，举行了此次人脸识别系统性能测试，全部委托软件测试中心组织此次测试。</p>
+<a id="more"></a>
+<h1 id="项目简介"><a href="#项目简介" class="headerlink" title="项目简介"></a>项目简介</h1><h2 id="测试内容及环境"><a href="#测试内容及环境" class="headerlink" title="测试内容及环境"></a>测试内容及环境</h2><ul>
+<li>本次测试包括两个方面：静态识别技术测试，动态识别技术测试。</li>
+<li>为了保证测试的公平公正，静态测试与离线视频测试的测试环境一律采用单机或单集群局域网，不得接入外网，和外界物理隔离。</li>
+<li>此次测试机器由各厂家自行提供，测试前需向组织测试方报备机器数量及具体参数配置。</li>
+</ul>
+<h2 id="静态人脸比对"><a href="#静态人脸比对" class="headerlink" title="静态人脸比对"></a>静态人脸比对</h2><h3 id="方案描述"><a href="#方案描述" class="headerlink" title="方案描述"></a>方案描述</h3><p>由测试方提供证件照底库和多组查询照。参测单位对底库照片进行建库，并启动人像检索功能，系统需将查询返回的前二十名结果保存下来，由测试方统计命中结果。  </p>
+<h3 id="测试数据准备"><a href="#测试数据准备" class="headerlink" title="测试数据准备"></a>测试数据准备</h3><table>
+<thead>
+<tr>
+<th align="center">测试数据</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">证件照底库</td>
+<td align="center">5000万张证件照照片</td>
+</tr>
+<tr>
+<td align="center">查询照片</td>
+<td align="center">查询照总共300张，包括低清视频截图照、高清视频截图、其他照片三类照片数据</td>
+</tr>
+</tbody></table>
+<h3 id="测试步骤"><a href="#测试步骤" class="headerlink" title="测试步骤"></a>测试步骤</h3><h4 id="测试数据准备-1"><a href="#测试数据准备-1" class="headerlink" title="测试数据准备"></a>测试数据准备</h4><ol>
+<li>组织测试方准备5000万证件照底库，并将300张测试数据集的登记照混入人像库，并进行统一重命名。  </li>
+<li>将5000万张照片压缩为一个zip格式压缩包，作为测试数据源。  </li>
+</ol>
+<h4 id="厂家建立人像库"><a href="#厂家建立人像库" class="headerlink" title="厂家建立人像库"></a>厂家建立人像库</h4><ol>
+<li>各测试参商将测试服务器部署到组织测试方指定区域，组织测试方以移动硬盘为介质将5000万数据压缩包以随机顺序移交给参测厂商。  </li>
+<li>各参测厂商拷贝人像库压缩包结束后，统一开始计时，要求在4天内完成建库，6天未完成建库，则静态算法测试计零分。  </li>
+</ol>
+<h4 id="厂家测试"><a href="#厂家测试" class="headerlink" title="厂家测试"></a>厂家测试</h4><ol>
+<li>参测厂商以随机顺序依次一一进行测试，组织测试方以U盘为介质，将300张测试集查询照下发给当前参测厂商。  </li>
+<li>参测单位启动系统进行批量自动人像检索，将得到在底库中的前20名最相似人员结果写入CSV文件中。测试完成后，参测单位将结果CSV文件交予测试方。记录提交的CSV文件的MD5值。   </li>
+<li>当前测试厂商在测试过程中不允许对测试图片进行修改，检索一旦开启，不允许对机器进行操作。   </li>
+<li>测试过程中，非当前测试厂商的测试人员需在指定区域休息，不得操作各自服务器。   </li>
+<li>比对时间为连续2小时以内，超过2.5小时则静态算法项计零分。  </li>
+</ol>
+<h4 id="人工验证测试结果"><a href="#人工验证测试结果" class="headerlink" title="人工验证测试结果"></a>人工验证测试结果</h4><p>测试方对各厂家的测试结果和标准答案进行对比，记录结果，并形成测试报告。</p>
+<h3 id="评判指标"><a href="#评判指标" class="headerlink" title="评判指标"></a>评判指标</h3><p>各厂家提交的csv表格格式如下：</p>
+<table>
+<thead>
+<tr>
+<th align="center">查询照</th>
+<th align="center">首位</th>
+<th align="center">第二位</th>
+<th align="center">…</th>
+<th align="center">第二十</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">Q0001</td>
+<td align="center">B03</td>
+<td align="center">B44</td>
+<td align="center">…</td>
+<td align="center">B79</td>
+</tr>
+<tr>
+<td align="center">Q0002</td>
+<td align="center">A02</td>
+<td align="center">B53</td>
+<td align="center">…</td>
+<td align="center">B39</td>
+</tr>
+</tbody></table>
+<p>统计量说明：</p>
+<ul>
+<li>1.首位命中数：系统返回检索结果中，目标人物位于第一位，即相似度最高；</li>
+<li>2.前十命中数：系统返回检索结果中，目标人物位于前二至十位；</li>
+<li>3.前二十命中数：系统返回检索结果中，目标人物位于前十一至二十位</li>
+</ul>
+<h3 id="评判方法"><a href="#评判方法" class="headerlink" title="评判方法"></a>评判方法</h3><table>
+<thead>
+<tr>
+<th align="center">命中情况</th>
+<th align="center">首位</th>
+<th align="center">2-10位</th>
+<th align="center">11-20位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">分数权重</td>
+<td align="center">1</td>
+<td align="center">0.5</td>
+<td align="center">0.1</td>
+</tr>
+<tr>
+<td align="center">命中数量</td>
+<td align="center">A</td>
+<td align="center">B</td>
+<td align="center">C</td>
+</tr>
+<tr>
+<td align="center">总分（百分制）</td>
+<td align="center">100<em>(1</em>A+0.5<em>B+0.2</em>C)/(300)</td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+</tbody></table>
+<h2 id="动态离线视频布控"><a href="#动态离线视频布控" class="headerlink" title="动态离线视频布控"></a>动态离线视频布控</h2><h3 id="方案描述-1"><a href="#方案描述-1" class="headerlink" title="方案描述"></a>方案描述</h3><p>测试方提供离线视频文件，同时会提供一定数量登记照片作为布控库。参测单位将布控人员导入测试系统，并启动离线视频分析比对功能。系统需将离线视频分析过程中报警比中结果记录保存下来，由测试方统计报警情况。  </p>
+<h3 id="测试数据准备-2"><a href="#测试数据准备-2" class="headerlink" title="测试数据准备"></a>测试数据准备</h3><table>
+<thead>
+<tr>
+<th align="center">测试数据</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">证件照底库</td>
+<td align="center">30万张底库布控照片</td>
+</tr>
+<tr>
+<td align="center">摄像头架设</td>
+<td align="center">按人脸卡口标准架设</td>
+</tr>
+</tbody></table>
+<p>离线视频录制步骤:  </p>
+<ol>
+<li>将20位黑名单人员，将其证件照混入布控底库中   </li>
+<li>测试前，组织方组织测试人员前往测试点位进行视频录制   </li>
+<li>黑名单人员人通过镜头5次，即最终有视频有100人次通过   </li>
+<li>所有黑名单过人记录信息整理为CSV文件，对于每一个视频中出现的黑名单人员，标注其ID，起始时间，结束时间作为一次过人记录，以作为黑名单过人记录的标准答案</li>
+</ol>
+<h3 id="测试步骤-1"><a href="#测试步骤-1" class="headerlink" title="测试步骤"></a>测试步骤</h3><h4 id="测试数据准备-3"><a href="#测试数据准备-3" class="headerlink" title="测试数据准备"></a>测试数据准备</h4><ol>
+<li>测试方准备30万证件照底库，并将20张黑名单的证件照混入人像库，并进行统一重命名   </li>
+<li>测试方按照离线视频录制方法录制一段时长约30分钟，人流量约为1000的离线视频，转换为标准AVI格式，作为测试所用视频源。</li>
+</ol>
+<h4 id="厂家建立人像库-1"><a href="#厂家建立人像库-1" class="headerlink" title="厂家建立人像库"></a>厂家建立人像库</h4><ol>
+<li>各测试参商将测试服务器部署到组织测试方指定区域，组织测试方以移动硬盘为介质将30万数据压缩包以随机顺序移交给参测厂商   </li>
+<li>参测厂商拷贝人像库，导入各自系统，并启动建库，要求在一小时内完成建库。</li>
+</ol>
+<h4 id="厂家测试-1"><a href="#厂家测试-1" class="headerlink" title="厂家测试"></a>厂家测试</h4><ol>
+<li>组织测试方以U盘为介质，将测试视频下发给参测厂商。</li>
+<li>各参测厂商将视频文件上传至人脸识别系统，为了比较各厂家在同一误报率下的准确率，各厂家需以同一误报数量的前提下，调整自身报警阈值，维持此时的报警阈值，不得修改。</li>
+<li>测试过程中，组织测试方对参测厂商一对一进行监督，不允许参测厂商对报警结果进行增删操作。</li>
+<li>测试结束后，参测厂商需将报警结果在可视化页面呈现，且将所有报警结果导出为一个CSV文件，组织测试方依次一 一对参测厂商的报警结果进行统计。</li>
+</ol>
+<h4 id="人工验证测试结果-1"><a href="#人工验证测试结果-1" class="headerlink" title="人工验证测试结果"></a>人工验证测试结果</h4><p>测试方对各厂家的测试结果和标准答案进行对比，记录结果，并形成测试报告。</p>
+<h3 id="评判指标-1"><a href="#评判指标-1" class="headerlink" title="评判指标"></a>评判指标</h3><p>组织测试方统计如下信息量用来评判结果：</p>
+<ul>
+<li><p>系统正确报警数：指测试结果中可以匹配标准答案中某次黑名单过人记录的报警结果，“匹配”需同时满足如下条件：</p>
+<ul>
+<li>布控ID属于黑名单人员。</li>
+<li>报警时间处于该黑名单人员某次过人记录时间范围内。</li>
+<li>报警分数大于预设报警阈值。</li>
+<li>去重。如果标准答案中某个过人记录匹配了多次报警结果，只算作一次正确报警。</li>
+</ul>
+</li>
+<li><p>系统错误报警数：指测试结果中不匹配标准答案中对应黑名单过人记录的报警结果。</p>
+</li>
+</ul>
+<h3 id="评判方法-1"><a href="#评判方法-1" class="headerlink" title="评判方法"></a>评判方法</h3><ol>
+<li>组织测试方以随机顺序依次挑选测试厂商进行结果统计，将参测厂商报警结果的分数从高到低排序，从上往下筛选，当找到第十个错误报警时，记录该错误报警的报警分数，统计所有报警分数在该分数以上的正确报警结果，假设为N，则得分为N。  </li>
+<li>为了保证统计的严肃性，统计期间其他厂家不得入场，待当前厂家统计完成后，换下一厂家入场统计。</li>
+</ol>
+<h1 id="项目进展实施情况"><a href="#项目进展实施情况" class="headerlink" title="项目进展实施情况"></a>项目进展实施情况</h1><h2 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h2><h3 id="静态人脸比对需求"><a href="#静态人脸比对需求" class="headerlink" title="静态人脸比对需求"></a>静态人脸比对需求</h3><table>
+<thead>
+<tr>
+<th align="center">需求</th>
+<th align="center">预计开发耗时</th>
+<th align="center">实际情况</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">实现4天内对5000万人脸图片建库</td>
+<td align="center">3-6天</td>
+<td align="center">8天完成开发，对平均10k的图片，单卡每秒处理约100张</td>
+</tr>
+<tr>
+<td align="center">2小时完成300次查询并输出TOP20</td>
+<td align="center">3-5天</td>
+<td align="center">10天完成开发，能够载入特定格式的特征向量文件并完成检索</td>
+</tr>
+<tr>
+<td align="center">写查询结果到csv</td>
+<td align="center">0.5天</td>
+<td align="center">0.5天完成开发</td>
+</tr>
+</tbody></table>
+<h3 id="动态人脸比对需求"><a href="#动态人脸比对需求" class="headerlink" title="动态人脸比对需求"></a>动态人脸比对需求</h3><table>
+<thead>
+<tr>
+<th align="center">需求</th>
+<th align="center">预计开发耗时</th>
+<th align="center">实际情况</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1小时内完成30万图片建库</td>
+<td align="center">0.5天</td>
+<td align="center">3天，能够在30分钟完成30万图片的建库</td>
+</tr>
+<tr>
+<td align="center">视频抽帧</td>
+<td align="center">0.5天</td>
+<td align="center">1天</td>
+</tr>
+<tr>
+<td align="center">人脸检测与检索</td>
+<td align="center">1.0-2.0天</td>
+<td align="center">2天</td>
+</tr>
+<tr>
+<td align="center">过滤错误报警、合并重复报警</td>
+<td align="center">0.5天</td>
+<td align="center">2天</td>
+</tr>
+<tr>
+<td align="center">输出要求要素到CSV</td>
+<td align="center">0.5天</td>
+<td align="center">0.5天</td>
+</tr>
+</tbody></table>
+<h2 id="成本"><a href="#成本" class="headerlink" title="成本"></a>成本</h2><h3 id="硬件成本"><a href="#硬件成本" class="headerlink" title="硬件成本"></a>硬件成本</h3><p>硬件总计约：35000元</p>
+<table>
+<thead>
+<tr>
+<th align="center">设备</th>
+<th align="center">型号</th>
+<th align="center">性能</th>
+<th align="center">数量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">CPU</td>
+<td align="center">至强处理器E5-2620v4 8核16线程</td>
+<td align="center">2.1Ghz</td>
+<td align="center">2</td>
+</tr>
+<tr>
+<td align="center">主板</td>
+<td align="center">华硕Z10PE-D8WS主板</td>
+<td align="center">支持双路CPU/双路GPU1</td>
+<td align="center">1</td>
+</tr>
+<tr>
+<td align="center">内存</td>
+<td align="center">金士顿，三星 16GDDR4 RECC</td>
+<td align="center">/</td>
+<td align="center">4</td>
+</tr>
+<tr>
+<td align="center">显卡</td>
+<td align="center">Asus/华硕猛禽GTX1080TI</td>
+<td align="center">11G显存</td>
+<td align="center">2</td>
+</tr>
+<tr>
+<td align="center">SSD硬盘</td>
+<td align="center">三星SSD，250G和2T</td>
+<td align="center">/</td>
+<td align="center">2</td>
+</tr>
+<tr>
+<td align="center">HHD硬盘</td>
+<td align="center">西部数据(WD)黑盘 4TB</td>
+<td align="center">SATA6Gb/s    7200转</td>
+<td align="center">2</td>
+</tr>
+<tr>
+<td align="center">电源</td>
+<td align="center">长城</td>
+<td align="center">1250W</td>
+<td align="center">1</td>
+</tr>
+<tr>
+<td align="center">工控机箱</td>
+<td align="center">/</td>
+<td align="center">/</td>
+<td align="center">1</td>
+</tr>
+</tbody></table>
+<h3 id="开发成本"><a href="#开发成本" class="headerlink" title="开发成本"></a>开发成本</h3><table>
+<thead>
+<tr>
+<th align="center">开发时间段</th>
+<th align="center">测试、调优时间</th>
+<th align="center">耗时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">静态测试</td>
+<td align="center">2017/12/19-2018/12/28    2018/01/02-2018/01/06</td>
+<td align="center">15天</td>
+</tr>
+<tr>
+<td align="center">动态测试</td>
+<td align="center">2017/12/19-2018/12/28    2018/01/02-2018/01/06</td>
+<td align="center">15天</td>
+</tr>
+</tbody></table>
+<h2 id="风险"><a href="#风险" class="headerlink" title="风险"></a>风险</h2><ul>
+<li>开发完成时，没有经过测试，可能存在自测未发现的问题</li>
+<li>静态建库5000万，没有考虑到异常情况断电后的恢复机制</li>
+<li>静态建库自测耗时3.5天，如果中途出现问题，可能完不成建库</li>
+<li>机器没有准备冗余，当机器故障时，难以快速更换</li>
+<li>没有写log日志，出现问题不能立即回溯问题</li>
+</ul>
+<h1 id="项目反馈"><a href="#项目反馈" class="headerlink" title="项目反馈"></a>项目反馈</h1><table>
+<thead>
+<tr>
+<th align="center">实施过程中的问题</th>
+<th align="center">解决方法</th>
+<th align="center">建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">机械盘io导致两块卡每秒处理70张图片，达不到预估150张</td>
+<td align="center">临时添加了固态硬盘</td>
+<td align="center">参加比赛时使用固态硬盘或者多块机械盘组成raid</td>
+</tr>
+<tr>
+<td align="center">打断后重新提取特征会丢失之前特征</td>
+<td align="center">临时修改代添加支持</td>
+<td align="center">应该在开发时考虑迟到异常恢复</td>
+</tr>
+</tbody></table>
+<h1 id="项目反思"><a href="#项目反思" class="headerlink" title="项目反思"></a>项目反思</h1><p>本次武汉市公安局测试，是我们第一次参加由公安局组织的人脸系统测试，虽然缺乏经验且开发时间很短，但我们还是在有限的时间内完成了相关功能的开发，并完成了全部的测试流程。从此次测试的结果来看，我们很可能拿不到一个优秀的成绩，但在比赛过程中还是积累了一些经验。相较于其他厂商，我们在资源和积累上都有差距，但在检索方面我们有一定的优势，大部分厂商都是在一套成熟的系统上为此次测试稍作修改，而我们却是为这次比赛重新写的代码，我觉得公司应该将一些底层公用处理能力抽象出来做成服务的形式，建设一个人脸识别平台/引擎，然后不论是参加测试还是项目，只需要根据不同的场景项目组合不同的接口即可，避免重复开发，降低开发和维护的成本。  </p>
+<p>由于我们实战经验不足，此次比赛踩了很多的坑，希望以后的同学们能吸取此次的教训，在各项比赛中取得好成绩。对于实战中千万级图片的处理能力亟待提高，例如磁盘的io问题，应该在测试环节就发现这个问题。</p>
+<ol>
+<li>制定技术方案时，除开发耗时外，应该考虑到测试的时间</li>
+<li>开发时应该考虑异常情况(断电，设备故障等)，为异常情况做好准备方案，例如程序被打断后应该能够恢复之前状态继续运行，做到不丢失数据或丢失少量数据</li>
+<li>程序必须包含log模块，反映程序的运行状态，防止发生问题时不能快速定位</li>
+<li>磁盘性能较低，且会发生损坏，应该使用raid或者固态硬盘提升性能，并做好数据备份</li>
+<li>尽量在进入比赛场地前做好准备，不要现场修改代码或者更改运行环境，很容易出错</li>
+<li>针对人脸测试比赛，在不了解具体的数据集的情况下，不要做针对性的优化，或者针对性的优化应该能够通过配置修改。</li>
+<li>应该做好设备冗余，防止临时设备故障</li>
+<li>处理耗时应该在可用时间的一半，留出一般的时间来处理突发情况</li>
+<li>写代码时，需要考虑到中文字符集的情况</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/01/01/install-tensorflow/" rel="prev" title="TensorFlow源码安装教程">
+      <i class="fa fa-chevron-left"></i> TensorFlow源码安装教程
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#项目背景"><span class="nav-number">1.</span> <span class="nav-text">项目背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#项目简介"><span class="nav-number">2.</span> <span class="nav-text">项目简介</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#测试内容及环境"><span class="nav-number">2.1.</span> <span class="nav-text">测试内容及环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#静态人脸比对"><span class="nav-number">2.2.</span> <span class="nav-text">静态人脸比对</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#方案描述"><span class="nav-number">2.2.1.</span> <span class="nav-text">方案描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#测试数据准备"><span class="nav-number">2.2.2.</span> <span class="nav-text">测试数据准备</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#测试步骤"><span class="nav-number">2.2.3.</span> <span class="nav-text">测试步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#测试数据准备-1"><span class="nav-number">2.2.3.1.</span> <span class="nav-text">测试数据准备</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#厂家建立人像库"><span class="nav-number">2.2.3.2.</span> <span class="nav-text">厂家建立人像库</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#厂家测试"><span class="nav-number">2.2.3.3.</span> <span class="nav-text">厂家测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#人工验证测试结果"><span class="nav-number">2.2.3.4.</span> <span class="nav-text">人工验证测试结果</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#评判指标"><span class="nav-number">2.2.4.</span> <span class="nav-text">评判指标</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#评判方法"><span class="nav-number">2.2.5.</span> <span class="nav-text">评判方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#动态离线视频布控"><span class="nav-number">2.3.</span> <span class="nav-text">动态离线视频布控</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#方案描述-1"><span class="nav-number">2.3.1.</span> <span class="nav-text">方案描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#测试数据准备-2"><span class="nav-number">2.3.2.</span> <span class="nav-text">测试数据准备</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#测试步骤-1"><span class="nav-number">2.3.3.</span> <span class="nav-text">测试步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#测试数据准备-3"><span class="nav-number">2.3.3.1.</span> <span class="nav-text">测试数据准备</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#厂家建立人像库-1"><span class="nav-number">2.3.3.2.</span> <span class="nav-text">厂家建立人像库</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#厂家测试-1"><span class="nav-number">2.3.3.3.</span> <span class="nav-text">厂家测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#人工验证测试结果-1"><span class="nav-number">2.3.3.4.</span> <span class="nav-text">人工验证测试结果</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#评判指标-1"><span class="nav-number">2.3.4.</span> <span class="nav-text">评判指标</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#评判方法-1"><span class="nav-number">2.3.5.</span> <span class="nav-text">评判方法</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#项目进展实施情况"><span class="nav-number">3.</span> <span class="nav-text">项目进展实施情况</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#需求"><span class="nav-number">3.1.</span> <span class="nav-text">需求</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#静态人脸比对需求"><span class="nav-number">3.1.1.</span> <span class="nav-text">静态人脸比对需求</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#动态人脸比对需求"><span class="nav-number">3.1.2.</span> <span class="nav-text">动态人脸比对需求</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#成本"><span class="nav-number">3.2.</span> <span class="nav-text">成本</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#硬件成本"><span class="nav-number">3.2.1.</span> <span class="nav-text">硬件成本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#开发成本"><span class="nav-number">3.2.2.</span> <span class="nav-text">开发成本</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#风险"><span class="nav-number">3.3.</span> <span class="nav-text">风险</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#项目反馈"><span class="nav-number">4.</span> <span class="nav-text">项目反馈</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#项目反思"><span class="nav-number">5.</span> <span class="nav-text">项目反思</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

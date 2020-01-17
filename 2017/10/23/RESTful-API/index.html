@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="原文链接：http:&#x2F;&#x2F;www.restapitutorial.com&#x2F;lessons&#x2F;whatisrest.html 什么是REST？REST全称Representational State Transfer。REST结构包含六大约束，这些约束规范最早是Roy Fielding在他的博士论文中提出，并且他在论文中定义了RESTful风格的基础。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RESTful API 详解">
+<meta property="og:url" content="https://hulksun.github.io/2017/10/23/RESTful-API/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="原文链接：http:&#x2F;&#x2F;www.restapitutorial.com&#x2F;lessons&#x2F;whatisrest.html 什么是REST？REST全称Representational State Transfer。REST结构包含六大约束，这些约束规范最早是Roy Fielding在他的博士论文中提出，并且他在论文中定义了RESTful风格的基础。">
+<meta property="og:locale" content="zh">
+<meta property="article:published_time" content="2017-10-23T06:26:43.000Z">
+<meta property="article:modified_time" content="2020-01-17T08:20:30.110Z">
+<meta property="article:author" content="Hulk Sun">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://hulksun.github.io/2017/10/23/RESTful-API/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>RESTful API 详解 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2017/10/23/RESTful-API/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RESTful API 详解
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-10-23 14:26:43" itemprop="dateCreated datePublished" datetime="2017-10-23T14:26:43+08:00">2017-10-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-01-17 16:20:30" itemprop="dateModified" datetime="2020-01-17T16:20:30+08:00">2020-01-17</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>原文链接：<a href="http://www.restapitutorial.com/lessons/whatisrest.html" target="_blank" rel="noopener">http://www.restapitutorial.com/lessons/whatisrest.html</a></p>
+<h1 id="什么是REST？"><a href="#什么是REST？" class="headerlink" title="什么是REST？"></a>什么是REST？</h1><p>REST全称Representational State Transfer。REST结构包含六大约束，这些约束规范最早是Roy Fielding在他的<a href="http://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm" target="_blank" rel="noopener">博士论文</a>中提出，并且他在论文中定义了RESTful风格的基础。</p>
+<a id="more"></a>
+<p>六大约束如下：</p>
+<h1 id="0x00-统一接口"><a href="#0x00-统一接口" class="headerlink" title="0x00 统一接口"></a>0x00 统一接口</h1><p>统一接口约束定义了服务器与客户端之前的接口规范。这一约束简化了系统结构，对系统各个部分进行解耦，使得各部分能够独立开发。统一接口的四个原则如下：</p>
+<h2 id="0x00-基于资源"><a href="#0x00-基于资源" class="headerlink" title="0x00 基于资源"></a>0x00 基于资源</h2><p>在请求中使用URI作为资源标识符来标识单个资源。资源本身从概念上来讲是和返回给客户端的资源表示分离开来的。举个例子，服务器并不会把数据库信息直接发送给客户端，发送的是HTML、XML和JSON这些表示一部分数据库信息的结构化信息，这些结构化信息会根据具体的客户端请求和服务器实现使用UTF-8编码方式。</p>
+<h2 id="0x01-通过资源的表示操作资源"><a href="#0x01-通过资源的表示操作资源" class="headerlink" title="0x01 通过资源的表示操作资源"></a>0x01 通过资源的表示操作资源</h2><p>当客户机持有资源的表示，包括附加的任何元数据时，它有足够的信息来修改或删除服务器上的资源，前提是它有权限这样做。</p>
+<h2 id="0x02-自描述的消息"><a href="#0x02-自描述的消息" class="headerlink" title="0x02 自描述的消息"></a>0x02 自描述的消息</h2><p>每个消息都包含足够的信息来描述如何处理消息。举个例子，用于解释互联网媒体类型的解析器可以由互联网媒体类型(以前称为MIME类型)指定。服务器的响应消息中也可以明确表明它们的可缓存性。</p>
+<h2 id="0x03-把超媒体作为应用状态的引擎（HATEOS）"><a href="#0x03-把超媒体作为应用状态的引擎（HATEOS）" class="headerlink" title="0x03 把超媒体作为应用状态的引擎（HATEOS）"></a>0x03 把超媒体作为应用状态的引擎（HATEOS）</h2><p>客户端通过主体内容、查询参数、请求头和请求的URI(资源名)传递状态给服务器，服务器通过主体内容、响应代码和响应头向客户端交付状态。这在技术上被称为超媒体(或超文本中的超链接)。<br>除了上面的描述之外，HATEOS还意味着在返回的主体(或头部)中包含了链接，以提供用于检索对象本身或相关对象的URI。稍后我们会详细讨论这个问题。</p>
+<p>任何REST服务必须提供的统一接口是其设计的基础。</p>
+<h1 id="0x01-无状态"><a href="#0x01-无状态" class="headerlink" title="0x01 无状态"></a>0x01 无状态</h1><p>由于REST是REpresentational State Transfer的首字母缩写，因此无状态是其关键。本质上，这意味着处理请求的必要状态包含在请求之中，无论是作为URI的一部分、查询参数、主体还是头部都可以。URI惟一地标识资源，而主体包含该资源的状态(或状态更改)。在服务器完成它的处理之后，适当的状态，或状态的部分，会通过头部、状态信息和响应主体传回给客户端。</p>
+<p>大多数程序员已经习惯了在一个容器内编程，容器为我们提供了“会话”的概念，它会在多个HTTP请求之间维护状态。在REST中，客户端必须包含服务器的所有信息以满足请求，如果该状态必须跨越多个请求，则需要重新发送状态。无状态允许更大的可伸缩性，因为服务器不需要维护、更新或传递会话状态。此外，负载平衡器不必担心会话与无状态系统的关联。</p>
+<p>那么状态和资源的区别是什么呢?状态(或应用状态)是服务器所关心的，以满足当前会话或请求所需的请求数据。资源(或资源状态)是定义资源表示的数据——例如，存储在数据库中的数据。将应用程序状态视为客户端和每个请求可能会有所不同的数据。另一方面，资源状态在请求它的每个客户端都是不变的。</p>
+<p>曾经有一个web应用程序的back-button问题，它在某个点上出现了AWOL，是因为它期望您按照某种顺序做事情吗?那是因为它违反了无状态原则。有些情况下，不遵守无状态原则，比如three-legged OAuth、API调用速率限制等等，再者，要尽一切努力确保应用程序状态不会跨越服务的多个请求。</p>
+<h1 id="0x02-可缓存机制"><a href="#0x02-可缓存机制" class="headerlink" title="0x02 可缓存机制"></a>0x02 可缓存机制</h1><p>就像在万维网上一样，客户端可以缓存响应。因此，响应必须隐式地或显式地定义自己为可缓存的或不可缓存的，以防止客户端在响应进一步请求时重用陈旧或不适当的数据。管理良好的缓存部分或完全消除了一些客户机服务器交互可以进一步提高系统可伸缩性和性能。</p>
+<h1 id="0x03-客户端服务器模式"><a href="#0x03-客户端服务器模式" class="headerlink" title="0x03 客户端服务器模式"></a>0x03 客户端服务器模式</h1><p>统一接口将客户端与服务器分开来。这种必要的分离意味着，客户端不必关心数据存储，而数据存储仍然在每个服务器的内部，因此客户端代码的可移植性得到了提高。服务器不关心用户界面或用户状态，因此服务器可以更简单、更灵活。服务器和客户端也可以独立地替换和开发，只要接口没有改变。</p>
+<h1 id="0x04-系统分层"><a href="#0x04-系统分层" class="headerlink" title="0x04 系统分层"></a>0x04 系统分层</h1><p>客户端通常不能判断它是直接连接到终端服务器的还是连接到中介服务器的。中介服务器可以通过实现负载平衡和提供共享缓存来提高系统的可伸缩性。分层也可以加强安全策略。</p>
+<h1 id="0x05-按需编码（可选）"><a href="#0x05-按需编码（可选）" class="headerlink" title="0x05 按需编码（可选）"></a>0x05 按需编码（可选）</h1><p>服务器可以通过将可以执行的逻辑传输到客户端的方法来临时扩展或自定义客户端的功能。可执行的逻辑可能包括编译的组件，如Java applet和JavaScript等客户端脚本。</p>
+<p>遵循这些约束，从而符合REST架构风格，将使任何类型的分布式超媒体系统都具有所需的紧急属性，如性能、可伸缩性、简单性、可修改性、可见性、可移植性和可靠性。</p>
+<p>注意:REST架构惟一的可选约束是按需编写代码。如果服务违反了任何其他约束，那么它就不能被严格地称为RESTful。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/04/13/PQT/" rel="prev" title="乘积量化索引树">
+      <i class="fa fa-chevron-left"></i> 乘积量化索引树
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/03/15/setup-Logical-volume-Linux/" rel="next" title="在Ubuntu上将多块磁盘设置为一个逻辑分区">
+      在Ubuntu上将多块磁盘设置为一个逻辑分区 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#什么是REST？"><span class="nav-number">1.</span> <span class="nav-text">什么是REST？</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x00-统一接口"><span class="nav-number">2.</span> <span class="nav-text">0x00 统一接口</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#0x00-基于资源"><span class="nav-number">2.1.</span> <span class="nav-text">0x00 基于资源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x01-通过资源的表示操作资源"><span class="nav-number">2.2.</span> <span class="nav-text">0x01 通过资源的表示操作资源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x02-自描述的消息"><span class="nav-number">2.3.</span> <span class="nav-text">0x02 自描述的消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x03-把超媒体作为应用状态的引擎（HATEOS）"><span class="nav-number">2.4.</span> <span class="nav-text">0x03 把超媒体作为应用状态的引擎（HATEOS）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x01-无状态"><span class="nav-number">3.</span> <span class="nav-text">0x01 无状态</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x02-可缓存机制"><span class="nav-number">4.</span> <span class="nav-text">0x02 可缓存机制</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x03-客户端服务器模式"><span class="nav-number">5.</span> <span class="nav-text">0x03 客户端服务器模式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x04-系统分层"><span class="nav-number">6.</span> <span class="nav-text">0x04 系统分层</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#0x05-按需编码（可选）"><span class="nav-number">7.</span> <span class="nav-text">0x05 按需编码（可选）</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="0 项目来源今年8月我入职我司的信息系统部门，我司要求新员工必须要跨部门轮岗实习，我被分配到了人事。人事的带教老师听说我是搞人工智能的，提出了需求：判断一张照片中的人是不是我司的员工。这个需求和我在学校做的工作类似，感觉难度不大，所以答应下来。此项目一来可以作为一个工具供人事部门使用，二来也可以作为轮岗实习的项目成果。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于深度学习方法的人脸检索系统">
+<meta property="og:url" content="https://hulksun.github.io/2018/09/26/face-search-of-svw/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="0 项目来源今年8月我入职我司的信息系统部门，我司要求新员工必须要跨部门轮岗实习，我被分配到了人事。人事的带教老师听说我是搞人工智能的，提出了需求：判断一张照片中的人是不是我司的员工。这个需求和我在学校做的工作类似，感觉难度不大，所以答应下来。此项目一来可以作为一个工具供人事部门使用，二来也可以作为轮岗实习的项目成果。">
+<meta property="og:locale" content="zh">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/faceRecg.gif">
+<meta property="article:published_time" content="2018-09-26T00:00:00.000Z">
+<meta property="article:modified_time" content="2020-01-17T08:19:04.341Z">
+<meta property="article:author" content="Hulk Sun">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hulksun.github.io/assets/img/faceRecg.gif">
+
+<link rel="canonical" href="https://hulksun.github.io/2018/09/26/face-search-of-svw/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>基于深度学习方法的人脸检索系统 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2018/09/26/face-search-of-svw/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          基于深度学习方法的人脸检索系统
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-09-26 08:00:00" itemprop="dateCreated datePublished" datetime="2018-09-26T08:00:00+08:00">2018-09-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-01-17 16:19:04" itemprop="dateModified" datetime="2020-01-17T16:19:04+08:00">2020-01-17</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="0-项目来源"><a href="#0-项目来源" class="headerlink" title="0 项目来源"></a>0 项目来源</h2><p>今年8月我入职我司的信息系统部门，我司要求新员工必须要跨部门轮岗实习，我被分配到了人事。人事的带教老师听说我是搞人工智能的，提出了需求：判断一张照片中的人是不是我司的员工。这个需求和我在学校做的工作类似，感觉难度不大，所以答应下来。此项目一来可以作为一个工具供人事部门使用，二来也可以作为轮岗实习的项目成果。</p>
+<a id="more"></a>
+<h2 id="1-开发历程"><a href="#1-开发历程" class="headerlink" title="1 开发历程"></a>1 开发历程</h2><p>人脸检索主要分为三个步骤：人脸检测、特征提取和特征检索。人脸检测方法采用的是MTCNN网络；人脸特征提取一开始准备使用VGG-FACE的，但是VGG-FACE的fc7层的向量维度是4096维的，维度太大不利于后续的检索，而且之前做毕业论文时把fc7层修改成512维的VGG-FACE网络找不到了，所以VGG-FACE就被抛弃了，后来查到Google的facenet不错，就选用facenet了；整个公司大概三万五千人，不需要特别的检索算法，使用穷尽搜索就OK了，速度慢是慢点但是准确率高。</p>
+<p>一开始准备使用深度学习框架是caffe，毕竟在学校的时候接触的比较多，使用起来也顺手。但是！公司的电脑不便于安装软件，我没有管理员权限，无法安装需要管理员权限的软件。Windows下caffe的安装需要vs2015，而vs2015对公司是收费的。所以各种原因使我抛弃了caffe投入TensorFlow的怀抱。由于电脑上没有GPU显卡，所以使用的是TensorFlow的CPU版本。</p>
+<p>开发语言选择的是Python，遵从TensorFlow的建议使用Python3.6.2。软件是个人PC单独使用的，所以UI和服务做成一个整体。UI直接所以Python内置的tkinter，虽然功能不如其他框架完善但是做一个小工具已经足够了。数据库方面使用SQLite数据库，使用简单，开发快速。</p>
+<p>项目整体开发时间大概三个星期，前两个星期完成了基本功能，后一个星期做一些界面和操作上的优化。所谓前人种树后人乘凉，此项目的代码也不全是我写的，很多代码都是参考和使用其他项目的代码完成的，具体的在Reference中。</p>
+<h2 id="2-关键技术"><a href="#2-关键技术" class="headerlink" title="2 关键技术"></a>2 关键技术</h2><h3 id="TensorFlow"><a href="#TensorFlow" class="headerlink" title="TensorFlow"></a>TensorFlow</h3><p>Google的东西就是香！<a href="https://www.tensorflow.org/" target="_blank" rel="noopener">TensorFlow</a></p>
+<h3 id="MTCNN"><a href="#MTCNN" class="headerlink" title="MTCNN"></a>MTCNN</h3><p><a href="https://github.com/AITTSMD/MTCNN-Tensorflow" target="_blank" rel="noopener">MTCNN</a>用于人脸检测和对齐，在理论和实践中都表现出较好的效果，直接拿来用就好了！</p>
+<h3 id="facenet"><a href="#facenet" class="headerlink" title="facenet"></a>facenet</h3><p>Google的东西还是香！<a href="https://github.com/davidsandberg/facenet" target="_blank" rel="noopener">facenet</a><br>网上都说facenet提取的特征是128维的，但是实际上代码跑出来的特征向量是512维的，可能是模型更新了。</p>
+<h2 id="3-项目结构"><a href="#3-项目结构" class="headerlink" title="3 项目结构"></a>3 项目结构</h2><p>该系统分为前端后后端两部分，前端主要用于绘制UI界面和发送数据，后端主要用于处理图片数据。</p>
+<h3 id="前端"><a href="#前端" class="headerlink" title="前端"></a>前端</h3><p>前端用于绘制UI界面和控制数据逻辑。前端将数据传给中间件，中间件对数据进行整理后发送给后端，后端接收到数据后进行计算或者存储处理，然后将处理结果发送给中间件，中间件将结果数据进行整理后发送给前端进行展示。</p>
+<h3 id="后端"><a href="#后端" class="headerlink" title="后端"></a>后端</h3><p>后端用于进行人脸检测、特征提取、特征检索和数据库操作。人脸检测时返回的是图片中的所有人脸位置信息，具体是对使用人脸进行操作还是只对某一个人脸进行操作由中间件决定。特征提取是对中间件发送来的人脸数据进行操作的，返回的特征是512的特征向量。特征检索时将待查特征向量与数据库中的所有特征向量进行余弦相似度计算，然后根据设定的阈值返回结果。数据库操作包括对人脸相关信息的增删改查。</p>
+<h2 id="4-项目成果"><a href="#4-项目成果" class="headerlink" title="4 项目成果"></a>4 项目成果</h2><p>经过三个星期的开发，此项目终于完成了，得益于MTCNN和facenet优秀的算法，程序使用过程中基本上没什么大问题。人脸检测方面没有什么问题，所有人脸都能检测出来；检索方面，虽然检索结果中相似度最大的第一名不一定是正确结果，但是Top-10中一定会出现正确结果；检索速度方面，对于22000个人脸的数据库，单张图片的检索时间为50秒左右，没有实时性要求的话该速度可以接受。在进行批量添加时，每一张图片的处理时间为1.5秒左右，22000张图片大概耗时12小时。</p>
+<center>
+<img src="/assets/img/faceRecg.gif" width = "80%"/>
+</center>
+
+<h2 id="5-优化方向"><a href="#5-优化方向" class="headerlink" title="5 优化方向"></a>5 优化方向</h2><ul>
+<li>优化检索算法，减少检索等待时间；</li>
+<li>多张人脸照片入库，减小检索误差；</li>
+<li>使用GPU加速。</li>
+</ul>
+<h2 id="6-小结"><a href="#6-小结" class="headerlink" title="6 小结"></a>6 小结</h2><p>通过本次开发熟悉了Python中的tkinter使用，了解了tensorflow框架下MTCNN和facenet的使用方法。虽然核心算法部分不是自己实现的，但是依然收获颇多，不论是编程能力方面还是算法理解方面都有进一步的提高。该项目中的系统还有很大的优化空间，如果继续开发的话还是能够更加完善的。</p>
+<h2 id="7-Reference"><a href="#7-Reference" class="headerlink" title="7 Reference"></a>7 Reference</h2><ul>
+<li><a href="https://github.com/shanren7/real_time_face_recognition" target="_blank" rel="noopener">Real Time Face Recognition</a></li>
+<li><a href="https://github.com/AITTSMD/MTCNN-Tensorflow" target="_blank" rel="noopener">MTCNN</a></li>
+<li><a href="https://github.com/davidsandberg/facenet" target="_blank" rel="noopener">facenet</a></li>
+<li><a href="https://www.tensorflow.org/" target="_blank" rel="noopener">TensorFlow</a></li>
+<li><a href="https://www.cndba.cn/dave/article/2154" target="_blank" rel="noopener">SQLite</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/03/15/setup-Logical-volume-Linux/" rel="prev" title="在Ubuntu上将多块磁盘设置为一个逻辑分区">
+      <i class="fa fa-chevron-left"></i> 在Ubuntu上将多块磁盘设置为一个逻辑分区
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/01/01/install-tensorflow/" rel="next" title="TensorFlow源码安装教程">
+      TensorFlow源码安装教程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#0-项目来源"><span class="nav-number">1.</span> <span class="nav-text">0 项目来源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-开发历程"><span class="nav-number">2.</span> <span class="nav-text">1 开发历程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-关键技术"><span class="nav-number">3.</span> <span class="nav-text">2 关键技术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TensorFlow"><span class="nav-number">3.1.</span> <span class="nav-text">TensorFlow</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MTCNN"><span class="nav-number">3.2.</span> <span class="nav-text">MTCNN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#facenet"><span class="nav-number">3.3.</span> <span class="nav-text">facenet</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-项目结构"><span class="nav-number">4.</span> <span class="nav-text">3 项目结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#前端"><span class="nav-number">4.1.</span> <span class="nav-text">前端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#后端"><span class="nav-number">4.2.</span> <span class="nav-text">后端</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-项目成果"><span class="nav-number">5.</span> <span class="nav-text">4 项目成果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-优化方向"><span class="nav-number">6.</span> <span class="nav-text">5 优化方向</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-小结"><span class="nav-number">7.</span> <span class="nav-text">6 小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Reference"><span class="nav-number">8.</span> <span class="nav-text">7 Reference</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

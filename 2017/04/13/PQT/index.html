@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="引言高维矢量的欧氏距离计算应用广泛，尤其是在近邻搜索方面。由于维度灾难，近邻搜索是非常耗时耗力的。在一个D维的欧式空间$R^{D}$中，近邻搜索就是在n个矢量组成的有限集合$y\subset R^{D}$中找出元素$NN(x)$，并且该元素到查询矢量$x\in R^{D}$的距离最小：$$NN(x)&#x3D;arg\min_{y\subset \cal{Y}}d(x,y)$$ 现已提出的几种多维索引方法都">
+<meta property="og:type" content="article">
+<meta property="og:title" content="乘积量化索引树">
+<meta property="og:url" content="https://hulksun.github.io/2017/04/13/PQT/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="引言高维矢量的欧氏距离计算应用广泛，尤其是在近邻搜索方面。由于维度灾难，近邻搜索是非常耗时耗力的。在一个D维的欧式空间$R^{D}$中，近邻搜索就是在n个矢量组成的有限集合$y\subset R^{D}$中找出元素$NN(x)$，并且该元素到查询矢量$x\in R^{D}$的距离最小：$$NN(x)&#x3D;arg\min_{y\subset \cal{Y}}d(x,y)$$ 现已提出的几种多维索引方法都">
+<meta property="og:locale" content="zh">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/PQT/VQ.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/PQT/VQ-example.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/PQT/PQ.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/PQT/PQT.png">
+<meta property="og:image" content="https://hulksun.github.io/assets/img/PQT/PQT-example.png">
+<meta property="article:published_time" content="2017-04-12T23:22:35.000Z">
+<meta property="article:modified_time" content="2020-01-17T08:20:30.110Z">
+<meta property="article:author" content="Hulk Sun">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hulksun.github.io/assets/img/PQT/VQ.png">
+
+<link rel="canonical" href="https://hulksun.github.io/2017/04/13/PQT/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>乘积量化索引树 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>About</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2017/04/13/PQT/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          乘积量化索引树
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-04-13 07:22:35" itemprop="dateCreated datePublished" datetime="2017-04-13T07:22:35+08:00">2017-04-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-01-17 16:20:30" itemprop="dateModified" datetime="2020-01-17T16:20:30+08:00">2020-01-17</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h1><p>高维矢量的欧氏距离计算应用广泛，尤其是在近邻搜索方面。由于维度灾难，近邻搜索是非常耗时耗力的。在一个D维的欧式空间$R^{D}$中，近邻搜索就是在n个矢量组成的有限集合$y\subset R^{D}$中找出元素$NN(x)$，并且该元素到查询矢量$x\in R^{D}$的距离最小：$$NN(x)=arg\min_{y\subset \cal{Y}}d(x,y)$$</p>
+<p>现已提出的几种多维索引方法都在某种程度上减少了搜索时间，例如KD-tree或者其他分支和限定技术。然而，对于高维搜索空间，这些方法还不如蛮力计算矢量距离的方法高效。</p>
+<p>已经有大量的文献提出算法用以解决近似近邻搜索执行过程中产生的问题，这些算法的关键性思想是“近似”，即找出可能性最大的元素而不是可能性为1的元素。</p>
+<a id="more"></a>
+<h1 id="矢量量化"><a href="#矢量量化" class="headerlink" title="矢量量化"></a>矢量量化</h1><p>信息理论中的量化是一个有损过程。量化的目的是减少表达空间的基数，尤其是在实值空间中。一个量化器就是一个映射函数$q$，该函数将一个D维的矢量$x\in R^{D}$映射成为另一个矢量$q(x)\in \cal{C} = {c_{i};i\in \cal{I}}$，索引集合$\cal{I}$被假设为一个有限集合：$\cal{I} = 0…k-1$。量化之后的值$c_{i}$称为中心(centroids)，多个中心组成的集合$\cal{C}$构成规模为k的码本（codebook）。</p>
+<p>将输入矢量映射到一个给定的索引$i$所构成的向量集合$V_i$称为一个细胞（Voronoi cell）：$$\cal{V}<em>{i}={x\in R^{D}:q(x)=c</em>{i}}$$。<br>一个量化器的k个细胞组成一个$R^{D}$的划分区域。从定义可以看出，落在同一个细胞$V_i$的所有矢量都是被可以由同一个中心$c_{i}$检索。</p>
+<center>
+<img src="/assets/img/PQT/VQ.png" width = "40%"/>
+<br>
+矢量量化
+</center>
+
+<p>一个量化器的优劣通常由输入矢量x与其量化之后的值$q(x)$之间的平方误差来度量:$$MSE(q)=E_{x}[d(q(x),x)^2]=\int p(x)d(q(x),x)^2dx$$,其中,$d(x,y)=||x-y||$是x和y的欧氏距离，$p(x)$是随机变量X的概率分布函数。</p>
+<h2 id="矢量量化的缺点"><a href="#矢量量化的缺点" class="headerlink" title="矢量量化的缺点"></a>矢量量化的缺点</h2><center><img src="/assets/img/PQT/VQ-example.png" /><br>矢量量化举例</center>
+
+<p>举个例子：矢量空间是128维的，经过量化器量化之后产生了64位的中心码，即每0.5位表示矢量的一维，中心的数量就是$k=2^{64}$，那么构造这个量化器所需要的样本数量和复杂度将会是k的倍数，而且储存k个矢量所需要的存储空间是$2^{64}*(128)*4B=2^{33}TB$。所以，现存的计算机的计算能力和存储空间很难对高维矢量进行矢量量化。</p>
+<h1 id="乘积量化"><a href="#乘积量化" class="headerlink" title="乘积量化"></a>乘积量化</h1><p>乘积量化很好的解决了矢量量化存在的问题。</p>
+<center>
+<img src="/assets/img/PQT/PQ.png" width = "50%"/>
+<br>
+乘积量化
+</center>
+
+<p>乘积量化的思想是，将输入D维矢量x分为m段子矢量$u_{j}, 1\leq j\leq m$,子矢量的维度是$D^* = D/m$,然后对子矢量使用不同的量化器进行量化。对于一个给定的矢量x，映射关系为：$$\underbrace{x_1,…,x_{D^*}}<em>{u_1(x)},…,\underbrace{x</em>{D-D^8+1},…,x_D}_{u_m(x)}\to q_1(u_1(x)),…,q_m(u_m(x))$$</p>
+<p>其中$q_j$是第j个子矢量的较低复杂度的子量化器。子量化器$q_j$将索引集合$I_j$、码本$C_j$和与码本中的中心值$c_{i,j}$联系起来。乘积量化的输出由多个索引集合的笛卡儿积$\cal{I} = \cal{I}_1\times … \times \cal{I}_m$唯一标识，因此码本也有多个子码本做笛卡儿积得到：$\cal{C} = \cal{C}_1\times … \times \cal{C}_m$;集合的中心由m个中心按顺序首位拼接而成。</p>
+<h1 id="乘积量化树"><a href="#乘积量化树" class="headerlink" title="乘积量化树"></a>乘积量化树</h1><center>
+<img src="/assets/img/PQT/PQT.png" width="50%"/>
+<br>
+乘积量化树
+</center>
+
+<p>将矢量量化和乘积量化结合起来产生的结构就是乘积量化树。首先对输入矢量进行乘积量化，产生m个量化子集，然后在量化子集上进行矢量量化。</p>
+<center>
+<img src="/assets/img/PQT/PQT-example.png" width="50%"/>
+<br>
+乘积量化树举例
+</center>
+
+<p><img src="" alt=""></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/04/05/Android-with-so/" rel="prev" title="Android中调用动态链接库">
+      <i class="fa fa-chevron-left"></i> Android中调用动态链接库
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/10/23/RESTful-API/" rel="next" title="RESTful API 详解">
+      RESTful API 详解 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#引言"><span class="nav-number">1.</span> <span class="nav-text">引言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#矢量量化"><span class="nav-number">2.</span> <span class="nav-text">矢量量化</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#矢量量化的缺点"><span class="nav-number">2.1.</span> <span class="nav-text">矢量量化的缺点</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#乘积量化"><span class="nav-number">3.</span> <span class="nav-text">乘积量化</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#乘积量化树"><span class="nav-number">4.</span> <span class="nav-text">乘积量化树</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
