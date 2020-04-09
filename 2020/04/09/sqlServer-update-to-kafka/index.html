@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://hulksun.github.io').hostname,
+    root: '/',
+    scheme: 'Muse',
+    version: '7.7.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":"livere_uid","storage":true,"lazyload":false,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="背景SQLServer 为实时更新数据同步提供了 CDC 机制，类似于 Mysql 的 binlog，将数据更新操作维护到一张 CDC 表中。开启 cdc 的源表在插入 INSERT、更新 UPDATE 和删除 DELETE 活动时会插入数据到日志表中。cdc 通过捕获进程将变更数据捕获到变更表中，通过 cdc 提供的查询函数，可以捕获这部分数据。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="配置 Kafka 实时获取 SQL Server 的数据更新记录">
+<meta property="og:url" content="https://hulksun.github.io/2020/04/09/sqlServer-update-to-kafka/">
+<meta property="og:site_name" content="HULKBLOG">
+<meta property="og:description" content="背景SQLServer 为实时更新数据同步提供了 CDC 机制，类似于 Mysql 的 binlog，将数据更新操作维护到一张 CDC 表中。开启 cdc 的源表在插入 INSERT、更新 UPDATE 和删除 DELETE 活动时会插入数据到日志表中。cdc 通过捕获进程将变更数据捕获到变更表中，通过 cdc 提供的查询函数，可以捕获这部分数据。">
+<meta property="article:published_time" content="2020-04-09T02:52:17.000Z">
+<meta property="article:modified_time" content="2020-04-09T03:10:41.398Z">
+<meta property="article:author" content="Hulk Sun">
+<meta property="article:tag" content="Sql Server">
+<meta property="article:tag" content="Kafka">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://hulksun.github.io/2020/04/09/sqlServer-update-to-kafka/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>配置 Kafka 实时获取 SQL Server 的数据更新记录 | HULKBLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">HULKBLOG</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Talk is cheap, Show me the code.</p>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://hulksun.github.io/2020/04/09/sqlServer-update-to-kafka/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Hulk Sun">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="HULKBLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          配置 Kafka 实时获取 SQL Server 的数据更新记录
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2020-04-09 10:52:17 / Modified: 11:10:41" itemprop="dateCreated datePublished" datetime="2020-04-09T10:52:17+08:00">2020-04-09</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Big-Data/" itemprop="url" rel="index">
+                    <span itemprop="name">Big Data</span>
+                  </a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="Symbols count in article">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">Symbols count in article: </span>
+              <span>3.2k</span>
+            </span>
+            <span class="post-meta-item" title="Reading time">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">Reading time &asymp;</span>
+              <span>3 mins.</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>SQLServer 为实时更新数据同步提供了 CDC 机制，类似于 Mysql 的 binlog，将数据更新操作维护到一张 CDC 表中。<br>开启 cdc 的源表在插入 INSERT、更新 UPDATE 和删除 DELETE 活动时会插入数据到日志表中。cdc 通过捕获进程将变更数据捕获到变更表中，通过 cdc 提供的查询函数，可以捕获这部分数据。</p>
+<a id="more"></a>
+
+<h2 id="SQL-server-配置"><a href="#SQL-server-配置" class="headerlink" title="SQL server 配置"></a>SQL server 配置</h2><p>在SQL server中执行如下语句：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 开启db级的cdc</span></span><br><span class="line">sp_rds_cdc_enable_db</span><br><span class="line"><span class="comment">-- 验证数据库是否开启cdc成功</span></span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> sys.databases <span class="keyword">where</span> is_cdc_enabled = <span class="number">1</span>;</span><br><span class="line"><span class="comment">-- 对源表开启cdc</span></span><br><span class="line">exec sp_cdc_enable_table @source_schema='dbo', @source_name='tablename', @role_name=null;</span><br><span class="line">```  </span><br><span class="line">其中`@source_schema`和`@source_name`变量值换成你需要捕获的schema和table.</span><br><span class="line"></span><br><span class="line"><span class="comment">## Kafka 配置</span></span><br><span class="line"></span><br><span class="line"><span class="comment">### 软件版本</span></span><br><span class="line"></span><br><span class="line">此教程所使用的 Kafka 版本为 `kafka_2.12-2.2.0`, connctor 版本为 `debezium-connector-sqlserver-1.0.0.Final-plugin.tar.gz`, 配置环境为 Ubuntu 单机.</span><br><span class="line"></span><br><span class="line"><span class="comment">### 下载软件包并解压</span></span><br><span class="line"></span><br><span class="line">```bash</span><br><span class="line"><span class="comment"># current dir is ~/workspace</span></span><br><span class="line"><span class="comment"># Dwonload Kafka and extract</span></span><br><span class="line">$ wget https://archive.apache.org/dist/kafka/2.2.0/kafka_2.12-2.2.0.tgz</span><br><span class="line">$ tar xvf kafka_2.12-2.2.0.tgz</span><br><span class="line"><span class="comment"># Download connector and extract</span></span><br><span class="line">$ wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-sqlserver/1.0.0.Final/debezium-connector-sqlserver-1.0.0.Final-plugin.tar.gz</span><br><span class="line">$ tar xvf debezium-connector-sqlserver-1.0.0.Final-plugin.tar.gz</span><br><span class="line"><span class="comment"># configure connect-distributed, add debezium-connector-sqlserver plugin to connect-distributed.properties</span></span><br><span class="line">$ cd kafka_2.12-2.2.0 &amp;&amp; vim config/connect-distributed.properties</span><br><span class="line"><span class="comment"># uncomment last line, then add plugin path to 'plugin.path='</span></span><br><span class="line"><span class="comment"># path must be parent dirictory of debezium-connector-sqlserver,in my case is  ~/workspace</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="启动-Kafka-服务"><a href="#启动-Kafka-服务" class="headerlink" title="启动 Kafka 服务"></a>启动 Kafka 服务</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># current dir is ~/workspace/kafka_2.12-2.2.0</span></span><br><span class="line">$ ./bin/zookeeper-server-start.sh config/zookeeper.properties</span><br><span class="line">$ ./bin/kafka-server-start.sh config/server.properties</span><br><span class="line">$ ./bin/connect-distributed.sh ./config/connect-distributed.properties</span><br></pre></td></tr></table></figure>
+
+<h3 id="新建-connector"><a href="#新建-connector" class="headerlink" title="新建 connector"></a>新建 connector</h3><p>新建配置文件<code>sqlserver-cdc-source.json</code>, <a href="https://debezium.io/documentation/reference/1.0/connectors/sqlserver.html#deploying-a-connector" target="_blank" rel="noopener">配置文件说明</a></p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="attr">"name"</span>: <span class="string">"sqlserver-cdc-source"</span>,</span><br><span class="line">  <span class="attr">"config"</span>: &#123;</span><br><span class="line">    <span class="attr">"connector.class"</span>: <span class="string">"io.debezium.connector.sqlserver.SqlServerConnector"</span>,</span><br><span class="line">    <span class="attr">"database.hostname"</span>: <span class="string">"YOUROWN HOSTNAME"</span>,</span><br><span class="line">    <span class="attr">"database.port"</span>: <span class="string">"1433"</span>,</span><br><span class="line">    <span class="attr">"database.user"</span>: <span class="string">"USERNAME"</span>,</span><br><span class="line">    <span class="attr">"database.password"</span>: <span class="string">"PASSWORD"</span>,</span><br><span class="line">    <span class="attr">"database.dbname"</span>: <span class="string">"DBNAME"</span>,</span><br><span class="line">    <span class="attr">"database.server.name"</span>: <span class="string">"connector"</span>,</span><br><span class="line">    <span class="attr">"table.whitelist"</span>: <span class="string">"dbo.t1"</span>,</span><br><span class="line">    <span class="attr">"database.history.kafka.bootstrap.servers"</span>: <span class="string">"localhost:9092"</span>,</span><br><span class="line">    <span class="attr">"database.history.kafka.topic"</span>: <span class="string">"sqlserver-cdc-source"</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>添加 connector.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ curl -i -X POST -H <span class="string">"Accept:application/json"</span> -H  <span class="string">"Content-Type:application/json"</span> http://localhost:8083/connectors/ -d @sqlserver-cdc-source.json</span><br></pre></td></tr></table></figure>
+
+<h3 id="更新-connector"><a href="#更新-connector" class="headerlink" title="更新 connector"></a>更新 connector</h3><p>更新 connector 需要的配置文件与新建 connector 需要的配置文件不同, 配置文件 update_sqlserver-cdc-source.json 示例如下.</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="attr">"name"</span>: <span class="string">"sqlserver-cdc-source"</span>,</span><br><span class="line">  <span class="attr">"connector.class"</span>: <span class="string">"io.debezium.connector.sqlserver.SqlServerConnector"</span>,</span><br><span class="line">  <span class="attr">"database.hostname"</span>: <span class="string">"YOUROWN HOSTNAME"</span>,</span><br><span class="line">  <span class="attr">"database.port"</span>: <span class="string">"1433"</span>,</span><br><span class="line">  <span class="attr">"database.user"</span>: <span class="string">"USERNAME"</span>,</span><br><span class="line">  <span class="attr">"database.password"</span>: <span class="string">"PASSWORD"</span>,</span><br><span class="line">  <span class="attr">"database.dbname"</span>: <span class="string">"DBNAME"</span>,</span><br><span class="line">  <span class="attr">"database.server.name"</span>: <span class="string">"connector"</span>,</span><br><span class="line">  <span class="attr">"table.whitelist"</span>: <span class="string">"dbo.t1,dbo.t2"</span>,</span><br><span class="line">  <span class="attr">"database.history.kafka.bootstrap.servers"</span>: <span class="string">"localhost:9092"</span>,</span><br><span class="line">  <span class="attr">"database.history.kafka.topic"</span>: <span class="string">"sqlserver-cdc-source"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="更新-connector-1"><a href="#更新-connector-1" class="headerlink" title="更新 connector"></a>更新 connector</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ curl -i -X PUT -H <span class="string">"Accept:application/json"</span> -H  <span class="string">"Content-Type:application/json"</span> http://localhost:8083/connectors/sqlserver-cdc-source/config -d @update_sqlserver-cdc-source.json</span><br></pre></td></tr></table></figure>
+
+<h3 id="删除-connector"><a href="#删除-connector" class="headerlink" title="删除 connector"></a>删除 connector</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s -X DELETE http://localhost:8083/connectors/sqlserver-cdc-source</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看-topic"><a href="#查看-topic" class="headerlink" title="查看 topic"></a>查看 topic</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/kafka-topics.sh --list --bootstrap-server localhost:9092</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看-consumer"><a href="#查看-consumer" class="headerlink" title="查看 consumer"></a>查看 consumer</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic [TOPICNAME] --from-beginning</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>晚上加鸡腿！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    Donate
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/assets/img/pay.png" alt="Hulk Sun WeChat Pay">
+        <p>WeChat Pay</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/assets/img/pay.png" alt="Hulk Sun Alipay">
+        <p>Alipay</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Sql-Server/" rel="tag"># Sql Server</a>
+              <a href="/tags/Kafka/" rel="tag"># Kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/01/19/million-face-search/" rel="prev" title="千万级别人脸检索测试小结">
+      <i class="fa fa-chevron-left"></i> 千万级别人脸检索测试小结
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="lv-container" data-id="city" data-uid="MTAyMC80ODMyMC8yNDgxNA=="></div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SQL-server-配置"><span class="nav-number">2.</span> <span class="nav-text">SQL server 配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#启动-Kafka-服务"><span class="nav-number">2.1.</span> <span class="nav-text">启动 Kafka 服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#新建-connector"><span class="nav-number">2.2.</span> <span class="nav-text">新建 connector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更新-connector"><span class="nav-number">2.3.</span> <span class="nav-text">更新 connector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更新-connector-1"><span class="nav-number">2.4.</span> <span class="nav-text">更新 connector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#删除-connector"><span class="nav-number">2.5.</span> <span class="nav-text">删除 connector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看-topic"><span class="nav-number">2.6.</span> <span class="nav-text">查看 topic</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看-consumer"><span class="nav-number">2.7.</span> <span class="nav-text">查看 consumer</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Hulk Sun</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">10</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hulksun" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hulksun" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:884082105@qq.com" title="E-Mail → mailto:884082105@qq.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hulk Sun</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.0
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+<script>
+NexT.utils.loadComments(document.querySelector('#lv-container'), () => {
+  window.livereOptions = {
+    refer: location.pathname.replace(CONFIG.root, '').replace('index.html', '')
+  };
+  (function(d, s) {
+    var j, e = d.getElementsByTagName(s)[0];
+    if (typeof LivereTower === 'function') { return; }
+    j = d.createElement(s);
+    j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+    j.async = true;
+    e.parentNode.insertBefore(j, e);
+  })(document, 'script');
+});
+</script>
+
+</body>
+</html>
